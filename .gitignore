@@ -1,0 +1,12 @@
+/.idea
+/build
+
+.DS_Store
+/gpubsubbeat
+/gpubsubbeat.test
+*.pyc
+
+vendor
+logs
+
+_meta/kibana
