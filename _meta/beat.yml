@@ -1,0 +1,10 @@
+################### Gpubsubbeat Configuration Example #########################
+
+############################# Gpubsubbeat ######################################
+
+gpubsubbeat:
+  # Defines how often an event is sent to the output
+  period: 1s
+  projectid: env
+  maxfetchmsg: 10
+  region: all

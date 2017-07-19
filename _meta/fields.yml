@@ -1,0 +1,27 @@
+- key: gpubsubbeat
+  title: gpubsubbeat
+  description:
+  fields:
+    - name: counter
+      type: long
+      required: true
+      description: >
+        PLEASE UPDATE DOCUMENTATION
+    - name: receiveTimestamp
+      type: date
+    - name: user
+      type: text
+    - name: event_subtype
+      type: text
+    - name: instance
+      type: text
+    - name: zone
+      type: text
+    - name: instance_id
+      type: text
+    - name: error_code
+      type: text
+    - name: severity
+      type: text
+    - name: raw_data
+      type: text
