@@ -6,7 +6,6 @@ gpubsubbeat:
   # Defines how often an event is sent to the output
   period: 1s
   projectid: env
-  maxfetchmsg: 10
   region: all
 #================================ General =====================================
 
@@ -35,8 +34,8 @@ output.elasticsearch:
 
   # Optional protocol and basic auth credentials.
   #protocol: "https"
-  username: "elastic"
-  password: "changeme"
+  #username: "elastic"
+  #password: "changeme"
 
 #----------------------------- Logstash output --------------------------------
 #output.logstash:

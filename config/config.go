@@ -15,6 +15,5 @@ type Config struct {
 var DefaultConfig = Config{
 	Period:      1 * time.Second,
 	ProjectID:   "env",
-	MaxFetchMsg: 10,
 	Region:      "us-central1",
 }

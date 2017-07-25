@@ -16,6 +16,8 @@ import (
 	"github.com/elastic/beats/libbeat/publisher"
 
 	"github.com/nugielim/gpubsubbeat/config"
+
+
 	// [END imports]
 )
 
@@ -54,7 +56,7 @@ func (bt *Gpubsubbeat) Run(b *beat.Beat) error {
 		logp.Info("Error creating subscription", err)
 	}
 
-	err := bt.pullMsgsSettings(b,client,sub,bt.config.MaxFetchMsg)
+	err := bt.subscribeAndPullMsg(b,client,sub)
 	if err != nil {
 		logp.Err("Error!", err)
 	}
@@ -97,6 +99,7 @@ func (bt *Gpubsubbeat) createPubSubClient() *pubsub.Client {
 	} else {
 		proj = bt.config.ProjectID
 	}
+
 	client, err := pubsub.NewClient(ctx, proj)
 	if err != nil {
 		logp.Info("Could not create pubsub Client: %v", err)
@@ -143,7 +146,7 @@ func createTopicIfNotExists(c *pubsub.Client, topicSuffix string) *pubsub.Topic 
 	return t
 }
 
-func (bt *Gpubsubbeat) pullMsgsSettings(b *beat.Beat, client *pubsub.Client, name string, maxnomsg int) error {
+func (bt *Gpubsubbeat) subscribeAndPullMsg(b *beat.Beat, client *pubsub.Client, name string) error {
 	ctx := context.Background()
 
 	// trap Ctrl+C and call cancel on the context
@@ -165,7 +168,6 @@ func (bt *Gpubsubbeat) pullMsgsSettings(b *beat.Beat, client *pubsub.Client, nam
 	// [START pull_messages_settings]
 	logp.Info("Start fetching message")
 	sub := client.Subscription(name)
-	sub.ReceiveSettings.MaxOutstandingMessages = maxnomsg
 	err := sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
 		logp.Info("Got message: %q\n", string(msg.Data))
 
