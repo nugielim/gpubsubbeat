@@ -1,0 +1,19 @@
+package: .
+import:
+- package: cloud.google.com/go
+  version: ^0.10.0
+  subpackages:
+  - pubsub
+- package: github.com/elastic/beats
+  version: ^5.5
+  subpackages:
+  - libbeat/beat
+  - libbeat/common
+  - libbeat/logp
+  - libbeat/publisher
+- package: golang.org/x/net
+  version: ab5485076ff3407ad2d02db054635913f017b0ed
+  subpackages:
+  - context
+- package: golang.org/x/text
+  version: 836efe42bb4aa16aaa17b9c155d8813d336ed720
