@@ -6,7 +6,9 @@ gpubsubbeat:
   # Defines how often an event is sent to the output
   period: 1s
   projectid: env
-  region: all
+  topic_name: gpubsubbeat-all
+  subscriber_name: subscription
+
 #================================ General =====================================
 
 # The name of the shipper that publishes the network data. It can be used to group
