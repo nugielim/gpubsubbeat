@@ -2,14 +2,16 @@
 
 Welcome to Gpubsubbeat.
 
+This is a beat which pulls Google Cloud Stackdriver logging via exported pubsub.
+
 Ensure that this folder is at the following location:
-`${GOPATH}/github.com/nugielim/gpubsubbeat`
+`${GOPATH}/src/github.com/nugielim/gpubsubbeat`
 
 ## Getting Started with Gpubsubbeat
 
 ### Requirements
 
-* [Golang](https://golang.org/dl/) 1.7
+* [Golang](https://golang.org/dl/) 1.8+
 
 ### Init Project
 To get running with Gpubsubbeat and also install the
@@ -99,9 +101,9 @@ make clean
 To clone Gpubsubbeat from the git repository, run the following commands:
 
 ```
-mkdir -p ${GOPATH}/github.com/nugielim/gpubsubbeat
-cd ${GOPATH}/github.com/nugielim/gpubsubbeat
-git clone https://github.com/nugielim/gpubsubbeat
+mkdir -p ${GOPATH}/src/github.com/nugielim/gpubsubbeat
+cd ${GOPATH}/src/github.com/nugielim/gpubsubbeat
+git clone https://github.com/nugielim/gpubsubbeat .
 ```
 
 

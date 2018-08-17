@@ -1,32 +1,29 @@
 package beater
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"time"
-	"encoding/json"
 	"os/signal"
+	"time"
 
-	// [START imports]
-	"golang.org/x/net/context"
 	"cloud.google.com/go/pubsub"
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/publisher"
+	"golang.org/x/net/context"
 
 	"github.com/nugielim/gpubsubbeat/config"
-
-
-	// [END imports]
 )
 
 type Gpubsubbeat struct {
-	done   chan struct{}
-	config config.Config
-	client publisher.Client
+	done         chan struct{}
+	config       config.Config
+	client       publisher.Client
+	pubSubClient *pubsub.Client
+	topic        *pubsub.Topic
 }
-
 
 // Creates beater
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
@@ -39,44 +36,44 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 		done:   make(chan struct{}),
 		config: config,
 	}
-	return bt, nil
+
+	err := bt.createPubSubClient()
+	return bt, err
 }
 
 func (bt *Gpubsubbeat) Run(b *beat.Beat) error {
-	logp.Info("gpubsubbeat is running! Hit CTRL-C to stop it.")
-
-	bt.client = b.Publisher.Connect()
-	ticker := time.NewTicker(bt.config.Period)
-	client := bt.createPubSubClient()
-	topicSuffix := bt.config.Region
-	t := createTopicIfNotExists(client,topicSuffix)
-	var sub = "gpubsubbeat-subscription-"+topicSuffix
-	// Create a new subscription.
-	if err := create(client, sub, t); err != nil {
-		logp.Info("Error creating subscription", err)
+	var sub string
+	if bt.config.SubscriberPrefix != "" {
+		sub = fmt.Sprintf("%s%d", bt.config.SubscriberPrefix, time.Now().UnixNano())
+	} else {
+		sub = bt.config.SubscriberName
 	}
 
-	err := bt.subscribeAndPullMsg(b,client,sub)
+	logp.Info("gpubsubbeat is running! Topic: '%s' Subscriber: '%s' Hit CTRL-C to stop it.", bt.config.TopicName, sub)
+
+	bt.client = b.Publisher.Connect()
+
+	err := bt.createTopicIfNotExists()
+	if err != nil {
+		return err
+	}
+
+	if err := bt.manageSubscription(sub); err != nil {
+		return err
+	}
+
+	err = bt.subscribeAndPullMsg(bt.pubSubClient, sub)
 	if err != nil {
 		logp.Err("Error!", err)
 	}
 
-	// counter := 1
+	ticker := time.NewTicker(bt.config.Period)
 	for {
 		select {
 		case <-bt.done:
 			return nil
 		case <-ticker.C:
 		}
-
-		/*event := common.MapStr{
-			"@timestamp": common.Time(time.Now()),
-			"type":       b.Name,
-			"counter":    counter,
-		}*/
-		// bt.client.PublishEvent(event)
-		logp.Info("Event sent")
-		//counter++
 	}
 }
 
@@ -85,68 +82,94 @@ func (bt *Gpubsubbeat) Stop() {
 	close(bt.done)
 }
 
-func (bt *Gpubsubbeat) createPubSubClient() *pubsub.Client {
-	ctx := context.Background()
-	proj := ""
-	// [START auth]
+func (bt *Gpubsubbeat) createPubSubClient() error {
+	var proj string
+	var err error
+
 	if bt.config.ProjectID == "env" {
 		logp.Info("Project ID is not being set in the config. Fallback to GOOGLE_CLOUD_PROJECT environment variable.")
 		proj = os.Getenv("GOOGLE_CLOUD_PROJECT")
 		if proj == "" {
-			logp.Critical("GOOGLE_CLOUD_PROJECT environment variable must be set.\n")
-			os.Exit(1)
+			return fmt.Errorf("GOOGLE_CLOUD_PROJECT environment variable must be set.")
 		}
 	} else {
 		proj = bt.config.ProjectID
 	}
 
-	client, err := pubsub.NewClient(ctx, proj)
+	bt.pubSubClient, err = pubsub.NewClient(context.Background(), proj)
 	if err != nil {
-		logp.Info("Could not create pubsub Client: %v", err)
-		return nil
+		return fmt.Errorf("Could not create pubsub Client: %v", err)
 	}
-	return client
-
+	return nil
 }
 
-func create(client *pubsub.Client, name string, topic *pubsub.Topic) error {
+func (bt *Gpubsubbeat) manageSubscription(name string) error {
 	ctx := context.Background()
-	// [START create_subscription]
-	sub, err := client.CreateSubscription(ctx, name, pubsub.SubscriptionConfig{
-		Topic:       topic,
+	subscription := bt.pubSubClient.Subscription(name)
+
+	ok, err := subscription.Exists(ctx)
+	if err != nil {
+		fmt.Errorf("Failed to verify if %s exist: %v", name, err)
+	}
+	if ok {
+		subscriptionConfig, err := subscription.Config(ctx)
+		if err != nil {
+			return err
+		}
+		logp.Info("%+v", subscriptionConfig.Topic)
+
+		// you can have a deleted topic in a subscriber, so we need to verify that too
+		okt, errt := subscriptionConfig.Topic.Exists(ctx)
+		if errt != nil {
+			return errt
+		}
+		if !okt {
+			return fmt.Errorf("Subscriber %s topic is deleteted. Quiting...", name)
+		}
+		if subscriptionConfig.Topic.ID() != bt.topic.ID() {
+			return fmt.Errorf("Subscription %s topic doesn't match %s != %s", name, subscriptionConfig.Topic.ID(), bt.topic.ID())
+		}
+		return nil
+	}
+
+	sub, err := bt.pubSubClient.CreateSubscription(ctx, name, pubsub.SubscriptionConfig{
+		Topic:       bt.topic,
 		AckDeadline: 20 * time.Second,
 	})
 	if err != nil {
 		return err
 	}
-	logp.Info("Created subscription: %v\n", sub)
-	// [END create_subscription]
+	logp.Info("Created subscription: %v\n", sub.ID())
 	return nil
 }
 
-func createTopicIfNotExists(c *pubsub.Client, topicSuffix string) *pubsub.Topic {
+func (bt *Gpubsubbeat) createTopicIfNotExists() error {
 	ctx := context.Background()
 
-	var topic = "gpubsubbeat-" + topicSuffix
-	// Create a topic to subscribe to.
-	t := c.Topic(topic)
+	t := bt.pubSubClient.Topic(bt.config.TopicName)
 	ok, err := t.Exists(ctx)
 	if err != nil {
-		logp.Info("Topic %v exist, no need to create new topic", err)
+		return fmt.Errorf("Failed to verify if %s exist: %v", bt.config.TopicName, err)
 	}
 	if ok {
-		return t
+		bt.topic = t
+		return nil
 	}
 
-	t, err = c.CreateTopic(ctx, topic)
-	if err != nil {
-		logp.Critical("Failed to create the topic: %v", err)
-		os.Exit(1)
+	if bt.config.CreateTopic {
+		logp.Info("Creating topic %s", bt.config.TopicName)
+		t, err = bt.pubSubClient.CreateTopic(ctx, bt.config.TopicName)
+		if err != nil {
+			return fmt.Errorf("Failed to create the topic %s: %v", bt.config.TopicName, err)
+		}
+		bt.topic = t
+	} else {
+		return fmt.Errorf("Topic %s doesn't exists. Quiting.", bt.config.TopicName)
 	}
-	return t
+	return nil
 }
 
-func (bt *Gpubsubbeat) subscribeAndPullMsg(b *beat.Beat, client *pubsub.Client, name string) error {
+func (bt *Gpubsubbeat) subscribeAndPullMsg(client *pubsub.Client, name string) error {
 	ctx := context.Background()
 
 	// trap Ctrl+C and call cancel on the context
@@ -165,8 +188,7 @@ func (bt *Gpubsubbeat) subscribeAndPullMsg(b *beat.Beat, client *pubsub.Client, 
 		}
 	}()
 
-	// [START pull_messages_settings]
-	logp.Info("Start fetching message")
+	logp.Info("Start fetching message(s)")
 	sub := client.Subscription(name)
 	err := sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
 		logp.Info("Got message: %q\n", string(msg.Data))
@@ -174,11 +196,27 @@ func (bt *Gpubsubbeat) subscribeAndPullMsg(b *beat.Beat, client *pubsub.Client, 
 		var data map[string]interface{}
 
 		if err := json.Unmarshal(msg.Data, &data); err != nil {
-			logp.Critical("Unable unmarshal the data. %v",err)
+			logp.Warn("Unable unmarshal the data with error: '%s'. Ignoring. ", err)
+			msg.Ack()
+			return
 		}
-		timestampStr := data["timestamp"].(string)
 
-		timeParsed, _ := time.Parse(time.RFC3339,timestampStr)
+		var timeParsed time.Time
+		var err error
+
+		timestampStr, ok := data["timestamp"].(string)
+		if ok {
+			timeParsed, err = time.Parse(time.RFC3339, timestampStr)
+			if err != nil {
+				logp.Warn("timestamp field with value '%s' not properly formated ... Ignoring.", timestampStr)
+				msg.Ack()
+				return
+			}
+		} else {
+			logp.Warn("Missing 'timestamp' field. Ignoring")
+			msg.Ack()
+			return
+		}
 
 		var event common.MapStr
 
@@ -201,35 +239,35 @@ func (bt *Gpubsubbeat) subscribeAndPullMsg(b *beat.Beat, client *pubsub.Client, 
 			}
 
 			event = common.MapStr{
-				"@timestamp": common.Time(timeParsed.UTC()),
-				"type":       "jsonPayload",
-				"user":	user,
-				"event_subtype": event_subtype,
-				"event_type": event_type,
-				"instance": instance,
-				"zone": zone,
-				"instance_id": instance_id,
-				"error_code": error_code,
-				"raw_data": string(msg.Data),
+				"@timestamp":       common.Time(timeParsed.UTC()),
+				"type":             "jsonPayload",
+				"user":             user,
+				"event_subtype":    event_subtype,
+				"event_type":       event_type,
+				"instance":         instance,
+				"zone":             zone,
+				"instance_id":      instance_id,
+				"error_code":       error_code,
+				"raw_data":         string(msg.Data),
 				"receiveTimestamp": common.Time(time.Now()),
 			}
 
 		} else {
 			event = common.MapStr{
-				"@timestamp": common.Time(timeParsed.UTC()),
-				"type":       "protoPayload",
-				"raw_data": string(msg.Data),
+				"@timestamp":       common.Time(timeParsed.UTC()),
+				"type":             "protoPayload",
+				"raw_data":         string(msg.Data),
 				"receiveTimestamp": common.Time(time.Now()),
 			}
 		}
 		bt.client.PublishEvent(event)
 		msg.Ack()
-
 	})
+
 	if err != nil {
 		logp.Err("Error fetching message")
 		return err
 	}
+
 	return nil
-	// [END pull_messages_settings]
 }
