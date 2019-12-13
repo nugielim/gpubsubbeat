@@ -9,14 +9,12 @@
       "_meta": {
         "version": "5.5.0"
       },
-      "date_detection": false,
       "dynamic_templates": [
         {
           "strings_as_keyword": {
             "mapping": {
-              "ignore_above": 1024,
-              "index": "not_analyzed",
-              "type": "string"
+              "ignore_above": 4096,
+              "type": "keyword"
             },
             "match_mapping_type": "string"
           }
@@ -29,133 +27,128 @@
         "beat": {
           "properties": {
             "hostname": {
-              "ignore_above": 1024,
-              "index": "not_analyzed",
-              "type": "string"
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 4096
+                }
+              }
             },
             "name": {
-              "ignore_above": 1024,
-              "index": "not_analyzed",
-              "type": "string"
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 4096
+                }
+              }
             },
             "version": {
-              "ignore_above": 1024,
-              "index": "not_analyzed",
-              "type": "string"
-            }
-          }
-        },
-        "counter": {
-          "type": "long"
-        },
-        "error_code": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
-        },
-        "event_subtype": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
-        },
-        "instance": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
-        },
-        "instance_id": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
-        },
-        "meta": {
-          "properties": {
-            "cloud": {
-              "properties": {
-                "availability_zone": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
-                },
-                "instance_id": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
-                },
-                "machine_type": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
-                },
-                "project_id": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
-                },
-                "provider": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
-                },
-                "region": {
-                  "ignore_above": 1024,
-                  "index": "not_analyzed",
-                  "type": "string"
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 4096
                 }
               }
             }
           }
         },
+        "error_code": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "event_subtype": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "event_type": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "instance": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "instance_id": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
         "raw_data": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
         },
         "receiveTimestamp": {
           "type": "date"
         },
-        "severity": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
-        },
-        "tags": {
-          "ignore_above": 1024,
-          "index": "not_analyzed",
-          "type": "string"
+        "type": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
         },
         "user": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
         },
         "zone": {
-          "index": "analyzed",
-          "norms": {
-            "enabled": false
-          },
-          "type": "string"
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
         }
       }
+    },
+    "order": 0,
+    "settings": {
+      "index.mapping.total_fields.limit": 10000,
+      "index.refresh_interval": "5s"
+    },
+    "template": "gpubsubbeat-*",
+    "aliases": {
+      "gcp-events": {}
     }
-  },
-  "order": 0,
-  "settings": {
-    "index.refresh_interval": "5s"
-  },
-  "template": "gpubsubbeat-*"
+  }
 }
